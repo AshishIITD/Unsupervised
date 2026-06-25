@@ -1,0 +1,93 @@
+================================================================================
+DBSCAN CLUSTERING: STEP-BY-STEP NUMERICAL WALKTHROUGH
+================================================================================
+
+DBSCAN (Density-Based Spatial Clustering) groups points based on local density.
+It does not require you to pre-specify the number of clusters, and it easily
+discovers winding, circular, or nested shapes while discarding outliers.
+
+It relies on two parameters:
+1. Epsilon (Eps): The maximum search radius to look for neighbors.
+2. MinPts: The minimum number of points (including itself) required inside the
+   search radius to classify a point as a "Core Point".
+
+--------------------------------------------------------------------------------
+1. THE SAMPLE DATASET
+--------------------------------------------------------------------------------
+Imagine we have 5 points plotted on a 2D grid:
+
+  * Point A: (1, 1)
+  * Point B: (1, 2)
+  * Point C: (2, 1)
+  * Point D: (1, 10)
+  * Point E: (10, 10)
+
+We set Epsilon (Eps) = 3 and MinPts = 2.
+
+--------------------------------------------------------------------------------
+2. STEP-BY-STEP DENSITY SCANNING
+--------------------------------------------------------------------------------
+
+[ROUND 1] SCANNING POINT A (1, 1):
+1. Select Point A as our start point.
+2. Scan neighbors within search radius Eps = 3:
+   - Distance to B (1, 2) = 1.00 (Inside)
+   - Distance to C (2, 1) = 1.00 (Inside)
+   - Distance to D (1, 10) = 9.00 (Outside)
+   - Distance to E (10, 10) = 12.72 (Outside)
+3. Count neighborhood size: Neighbors of A are {A, B, C} (3 points).
+4. Evaluate density: Since count (3) is >= MinPts (2), Point A is labeled a CORE POINT.
+5. Form cluster: A starts CLUSTER 1. Its unvisited neighbors {B, C} are added
+   to our expansion queue.
+
+[ROUND 2] EXPANDING VIA POINT B (1, 2):
+1. Pop Point B from the expansion queue.
+2. Scan neighbors of B within radius Eps = 3:
+   - Neighbors of B are {A, B, C} (3 points).
+3. Evaluate density: Since count (3) is >= MinPts, Point B is labeled a CORE POINT.
+4. Expand: B joins CLUSTER 1. No new unvisited neighbors need to be queued.
+
+[ROUND 3] EXPANDING VIA POINT C (2, 1):
+1. Pop Point C from the queue.
+2. Scan neighbors of C within radius Eps = 3:
+   - Neighbors of C are {A, B, C} (3 points).
+3. Evaluate density: Since count (3) is >= MinPts, Point C is labeled a CORE POINT.
+4. Expand: C joins CLUSTER 1.
+5. The queue is now empty. CLUSTER 1 expansion is complete!
+
+[ROUND 4] SCANNING POINT D (1, 10):
+1. Select Point D (next unvisited point).
+2. Scan neighbors within radius Eps = 3:
+   - Neighbors of D is only {D} (1 point). Distance to E (10, 10) is 9.00 (Outside).
+3. Evaluate density: Since count (1) is < MinPts (2), Point D is NOT a Core Point.
+4. Label status: Since D has no connections to Core points, it is labeled as NOISE (Outlier).
+
+[ROUND 5] SCANNING POINT E (10, 10):
+1. Select Point E (last unvisited point).
+2. Scan neighbors within radius Eps = 3:
+   - Neighbors of E is only {E} (1 point).
+3. Evaluate density: Since count (1) is < MinPts (2), Point E is NOT a Core Point.
+4. Label status: Point E is labeled as NOISE (Outlier).
+
+--------------------------------------------------------------------------------
+3. FINAL RESULTS SUMMARY
+--------------------------------------------------------------------------------
+DBSCAN has completed scanning the entire dataset.
+
+FINAL DENSITY CHART:
++---------+-------------+-----------------+---------------+--------------------+
+| Point   | Coordinates | Neighbors Found | Class Type    | Final Assignment   |
++---------+-------------+-----------------+---------------+--------------------+
+| Point A | (1, 1)      | 3               | Core Point    | Cluster 1          |
+| Point B | (1, 2)      | 3               | Core Point    | Cluster 1          |
+| Point C | (2, 1)      | 3               | Core Point    | Cluster 1          |
+| Point D | (1, 10)     | 1               | Outlier       | NOISE (Grey Cross) |
+| Point E | (10, 10)    | 1               | Outlier       | NOISE (Grey Cross) |
++---------+-------------+-----------------+---------------+--------------------+
+
+Key Takeaway:
+DBSCAN successfully grouped the tightly packed neighborhood {A, B, C} into a
+single community while filtering out D and E as isolated noise. If another point
+had landed at (1, 4), it would have only 1 neighbor (B), making it a BORDER POINT
+(joining Cluster 1 but not acting as a core expander).
+================================================================================

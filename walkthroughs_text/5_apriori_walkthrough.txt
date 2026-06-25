@@ -1,0 +1,83 @@
+================================================================================
+APRIORI ASSOCIATION RULES: STEP-BY-STEP NUMERICAL WALKTHROUGH
+================================================================================
+
+The Apriori algorithm is used for Market Basket Analysis to discover hidden purchase
+relationships between products. It operates on a simple rule: "If an itemset is
+frequent, then all of its subsets must also be frequent." This allows the algorithm
+to prune (discard) unpopular item combinations early, saving massive amounts of
+computation.
+
+It evaluates rules using three main metrics:
+1. Support: How popular is the itemset? (Fraction of all receipts containing the items)
+2. Confidence: How reliable is the rule? (If they buy A, how likely do they buy B?)
+3. Lift: How strong is the rule? (Does buying A boost the probability of buying B
+   compared to random chance?)
+
+--------------------------------------------------------------------------------
+1. THE SAMPLE DATASET
+--------------------------------------------------------------------------------
+Imagine our supermarket database has exactly 3 customer receipts (transactions):
+
+  * Receipt 1 (T1): {Bread, Butter}
+  * Receipt 2 (T2): {Bread, Butter, Milk}
+  * Receipt 3 (T3): {Milk}
+
+We configure Apriori with a Minimum Support of 50% (must appear in >= 2 receipts)
+and a Minimum Confidence of 60%.
+
+--------------------------------------------------------------------------------
+2. STEP-BY-STEP ASSOCIATION MINING
+--------------------------------------------------------------------------------
+
+[STEP 1] CANDIATE SINGLE ITEMS (C1):
+We list every individual item bought and count how many receipts contain it:
+  * {Bread}: 2 receipts (T1, T2) -> Support = 2 / 3 = 66.7%
+  * {Butter}: 2 receipts (T1, T2) -> Support = 2 / 3 = 66.7%
+  * {Milk}: 2 receipts (T2, T3) -> Support = 2 / 3 = 66.7%
+
+All three items meet our Minimum Support of 50%. They all become Frequent
+1-Itemsets (L1).
+
+[STEP 2] CANDIDATE ITEM PAIRS (C2):
+We combine the frequent items from L1 to create pairs, and count their support:
+  * {Bread, Butter}: 2 receipts (T1, T2) -> Support = 2 / 3 = 66.7% (Passes!)
+  * {Bread, Milk}: 1 receipt (T2) -> Support = 1 / 3 = 33.3% (Pruned! Below 50%)
+  * {Butter, Milk}: 1 receipt (T2) -> Support = 1 / 3 = 33.3% (Pruned! Below 50%)
+
+Only {Bread, Butter} survives the support threshold. It is our only Frequent
+2-Itemset (L2).
+
+[STEP 3] RULE GENERATION & METRIC AUDITS:
+We extract potential "If-Then" rules from our frequent pair {Bread, Butter} and
+calculate their metrics:
+
+* RULE A: [Bread] -> [Butter]
+  - Support (Popularity): Support of {Bread, Butter} = 66.7%
+  - Confidence (Reliability): What fraction of Bread buyers also bought Butter?
+    Confidence = Support(Bread, Butter) / Support(Bread) = 2 / 2 = 100%
+    (Passes our 60% threshold!)
+  - Lift (Strength): Does buying Bread boost Butter purchases?
+    Lift = Confidence(Bread -> Butter) / Support(Butter) = 1.00 / 0.667 = 1.5x
+    (Buying bread makes a customer 1.5 times more likely to purchase butter.)
+
+* RULE B: [Butter] -> [Bread]
+  - Support: 66.7%
+  - Confidence: Support(Bread, Butter) / Support(Butter) = 2 / 2 = 100% (Passes!)
+  - Lift: 1.00 / 0.667 = 1.5x
+
+--------------------------------------------------------------------------------
+3. FINAL DISCOVERED RULES
+--------------------------------------------------------------------------------
++-------------------------+-----------+------------+------+--------------------+
+| Discovered Rule         | Support   | Confidence | Lift | Retail Action      |
++-------------------------+-----------+------------+------+--------------------+
+| [Bread] -> [Butter]     | 66.7%     | 100%       | 1.5x | Co-locate products |
+| [Butter] -> [Bread]     | 66.7%     | 100%       | 1.5x | Bundle deal promo  |
++-------------------------+-----------+------------+------+--------------------+
+
+Key Takeaway:
+Apriori successfully pruned away low-support pairs early (like Bread + Milk) and
+focused exclusively on the strong, reliable rules, allowing retailers to optimize
+store layouts and cross-selling campaigns with simple counts.
+================================================================================
