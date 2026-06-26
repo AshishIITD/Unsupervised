@@ -101,7 +101,7 @@ def generate_pdfs():
     os.makedirs(pdf_dir, exist_ok=True)
     
     # 1. Individual Walkthrough Contents (in HTML format for printing)
-    kmeans_html = """
+    kmeans_html = r"""
     <p>
         K-Means is an iterative, partition-based clustering algorithm. It groups data points into 
         <span class="highlight">K</span> distinct clusters by minimizing the distance between points and their respective 
@@ -198,112 +198,350 @@ def generate_pdfs():
     </table>
     """
 
-    dbscan_html = """
+    dbscan_html = r"""
     <p>
-        DBSCAN groups points based on local density. It does not require you to pre-specify the number of clusters, 
-        and it is capable of discovering clusters of arbitrary shapes (like concentric rings) while cleanly filtering out outliers.
-        It relies on a search radius <strong>&epsilon; (Epsilon)</strong> and a neighborhood threshold <strong>MinPts</strong>.
+        <strong>DBSCAN (Density-Based Spatial Clustering of Applications with Noise)</strong> is one of the most important clustering algorithms because, unlike K-Means, you do not need to specify the number of clusters ($K$) in advance, and it is capable of discovering clusters of arbitrary shapes while cleanly filtering out outliers.
     </p>
     
-    <h3>The Sample Dataset</h3>
-    <p>Imagine we have 5 points plotted on a 2D coordinate grid:</p>
+    <div class="alert">
+        <strong>The Core Philosophy:</strong> Points that are in dense regions belong to the same cluster. Points that are isolated are treated as noise (outliers).
+    </div>
+
+    <h3>Why DBSCAN? (K-Means vs. DBSCAN)</h3>
+    <p>Consider a dataset with two clusters and one isolated point (outlier):</p>
+    <pre style="font-family: monospace; background: #f7fafc; padding: 12px; border-left: 4px solid #cbd5e0; line-height: 1.2;">
+● ● ● ●
+
+● ● ●
+
+                  ● ● ●
+
+                 ● ●
+
+       ×
+    </pre>
     <ul>
-        <li><strong>Point A</strong>: (1, 1)</li>
-        <li><strong>Point B</strong>: (1, 2)</li>
-        <li><strong>Point C</strong>: (2, 1)</li>
-        <li><strong>Point D</strong>: (1, 10)</li>
-        <li><strong>Point E</strong>: (10, 10)</li>
+        <li><strong>K-Means Problem:</strong> If you choose $K = 2$, K-Means will force every point into one of the two clusters, dragging the cluster centers and assigning the isolated outlier ($\times$) to one of them.</li>
+        <li><strong>DBSCAN Solution:</strong> DBSCAN recognizes that the isolated point doesn't belong to any dense neighborhood and labels it as <strong>Noise</strong>.</li>
     </ul>
-    <p>We set <strong>&epsilon; = 3</strong> and <strong>MinPts = 2</strong>.</p>
 
-    <h3>Step-by-Step Execution</h3>
-    <p><strong>Round 1: Scanning Point A (1, 1)</strong><br>
-       1. Select Point A as our start point.<br>
-       2. Scan neighbors within distance &epsilon; = 3: B (1, 2) and C (2, 1) are inside. D and E are outside.<br>
-       3. Count neighborhood size: Neighbors of A are {A, B, C} (3 points).<br>
-       4. Evaluate density: Since the count (3) is &ge; MinPts (2), <span class="highlight">Point A is labeled a Core Point</span>.<br>
-       5. Form cluster: A starts <strong>Cluster 1</strong>. Its unvisited neighbors {B, C} are added to the expansion queue.
+    <h3>DBSCAN Parameters</h3>
+    <p>DBSCAN relies on two key parameters to define density:</p>
+    <ol>
+        <li><strong>&epsilon; (Epsilon):</strong> The radius around a point defining its search neighborhood. Imagine drawing a circle of radius &epsilon; around every point.</li>
+        <li><strong>MinPts:</strong> The minimum number of points required inside the &epsilon;-radius (including the point itself) to call that region "dense".</li>
+    </ol>
+    
+    <pre style="font-family: monospace; background: #f7fafc; padding: 12px; border-left: 4px solid #cbd5e0; line-height: 1.2; width: fit-content; margin: 15px auto;">
+          ○○○○○
+       ○         ○
+      ○     ●     ○   &lt;-- radius &epsilon;
+       ○         ○
+          ○○○○○
+    </pre>
+
+    <h3>Three Types of Points</h3>
+    <p>DBSCAN classifies every data point into one of three categories:</p>
+    <ul>
+        <li>
+            <strong>1. Core Point:</strong> A point with at least <code>MinPts</code> neighbors inside its &epsilon;-neighborhood.
+            <pre style="font-family: monospace; background: #f7fafc; padding: 6px 12px; margin: 5px 0; width: fit-content; line-height: 1.2;">
+●  ●  ●
+● [X] ●   (X has &ge; MinPts neighbors. Core Point!)
+●  ●  ●</pre>
+        </li>
+        <li>
+            <strong>2. Border Point:</strong> A point that has fewer than <code>MinPts</code> neighbors, but falls within the &epsilon;-neighborhood of a core point.
+            <pre style="font-family: monospace; background: #f7fafc; padding: 6px 12px; margin: 5px 0; width: fit-content; line-height: 1.2;">
+●  ●  ●
+● [X] ● 
+   &epsilon;  ○   (Border point: connected to Core point X, but not dense itself)</pre>
+        </li>
+        <li>
+            <strong>3. Noise Point:</strong> A point with too few neighbors that is not reachable from any core point.
+            <pre style="font-family: monospace; background: #f7fafc; padding: 6px 12px; margin: 5px 0; width: fit-content; line-height: 1.2;">
+●  ●  ●
+            &times;  (Too far away from any core point. Noise Outlier!)</pre>
+        </li>
+    </ul>
+
+    <h3>Mathematical Definition</h3>
+    <p>
+        Let the &epsilon;-neighborhood of a point $p$ be defined as:
+        $$N_{\epsilon}(p) = \{q \mid \text{distance}(p,q) \le \epsilon\}$$
+        A point $p$ is a <strong>Core Point</strong> if:
+        $$|N_{\epsilon}(p)| \ge \text{MinPts}$$
+        Otherwise, if $p$ is in $N_{\epsilon}(c)$ for some core point $c$, it is a <strong>Border Point</strong>. Otherwise, it is a <strong>Noise Point</strong>.
+    </p>
+
+    <h3>The Sample Dataset</h3>
+    <p>Imagine we have 7 points plotted on a 2D coordinate grid:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Point</th>
+                <th>X Coordinate</th>
+                <th>Y Coordinate</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>A</strong></td><td>1</td><td>1</td></tr>
+            <tr><td><strong>B</strong></td><td>1</td><td>2</td></tr>
+            <tr><td><strong>C</strong></td><td>2</td><td>2</td></tr>
+            <tr><td><strong>D</strong></td><td>2</td><td>1</td></tr>
+            <tr><td><strong>E</strong></td><td>8</td><td>8</td></tr>
+            <tr><td><strong>F</strong></td><td>8</td><td>9</td></tr>
+            <tr><td><strong>G</strong></td><td>20</td><td>20</td></tr>
+        </tbody>
+    </table>
+    <p>We configure DBSCAN with <strong>&epsilon; = 2</strong> and <strong>MinPts = 3</strong>.</p>
+
+    <h3>Step-by-Step Numerical Scan</h3>
+    <p><strong>Step 1: Process Point A (1, 1)</strong><br>
+       1. Find all neighbors within &epsilon; = 2 using Euclidean distance. Neighbors are {A, B, C, D}.<br>
+       2. Count is 4. Since $4 \ge \text{MinPts } (3)$, <span class="highlight">A is a Core Point</span>.<br>
+       3. Start <strong>Cluster 1</strong>: $\{A\}$. Add A's neighbors $\{B, C, D\}$ to the expansion queue.
     </p>
     
-    <p><strong>Round 2: Expanding via Point B (1, 2)</strong><br>
-       1. Pop Point B from the queue.<br>
-       2. Scan neighbors: Neighbors are {A, B, C} (3 points).<br>
-       3. Evaluate density: Since count &ge; MinPts, <span class="highlight">Point B is also a Core Point</span>.<br>
-       4. Expand: B joins Cluster 1.
+    <p><strong>Step 2: Expand Cluster 1</strong><br>
+       We pull neighbors from the queue one by one and check if they can expand the cluster:
+    </p>
+    <ul>
+        <li><strong>Process B (1, 2):</strong> Neighbors within radius 2 are {A, B, C, D} (count 4 &ge; 3). B is a Core Point! B joins Cluster 1. Since its neighbors are already known, no new points are queued.</li>
+        <li><strong>Process C (2, 2):</strong> Neighbors are {A, B, C, D} (count 4 &ge; 3). C is a Core Point! C joins Cluster 1.</li>
+        <li><strong>Process D (2, 1):</strong> Neighbors are {A, B, C, D} (count 4 &ge; 3). D is a Core Point! D joins Cluster 1.</li>
+    </ul>
+    <p>Cluster 1 expansion is complete. <strong>Cluster 1 = {A, B, C, D}</strong>.</p>
+
+    <p><strong>Step 3: Process Point E (8, 8)</strong><br>
+       1. Select E (next unvisited point). Neighbors are {E, F} (distance is 1.0).<br>
+       2. Count is 2. Since $2 &lt; \text{MinPts } (3)$, E is not a core point. It is temporarily marked as Noise.
     </p>
 
-    <p><strong>Round 3: Expanding via Point C (2, 1)</strong><br>
-       1. Pop Point C from the queue.<br>
-       2. Scan neighbors: Neighbors are {A, B, C} (3 points).<br>
-       3. Evaluate density: Since count &ge; MinPts, <span class="highlight">Point C is a Core Point</span>.<br>
-       4. Expand: C joins Cluster 1. The queue is now empty. Cluster 1 is complete!
+    <p><strong>Step 4: Process Point F (8, 9)</strong><br>
+       1. Select F. Neighbors are {E, F}. Count is 2. Since $2 &lt; \text{MinPts } (3)$, F is not a core point.<br>
+       2. Since neither E nor F is reachable from any core point, they remain unconnected.
     </p>
 
-    <p><strong>Round 4: Scanning Point D (1, 10)</strong><br>
-       1. Select Point D (next unvisited point).<br>
-       2. Scan neighbors: The only neighbor of D is {D} (1 point). Distance to E (10, 10) is 9.0 (Outside).<br>
-       3. Evaluate density: Since the count (1) is < MinPts (2), Point D is not a Core Point.<br>
-       4. Label status: Since D has no connections to Core points, it is labeled as <span class="highlight">Noise (Outlier)</span>.
+    <p><strong>Step 5: Process Point G (20, 20)</strong><br>
+       1. Neighbors of G is only {G}. Count is 1. Not a core point.<br>
+       2. Marked as Noise.
     </p>
 
-    <p><strong>Round 5: Scanning Point E (10, 10)</strong><br>
-       1. Select Point E (last unvisited point).<br>
-       2. Scan neighbors: Only {E} (1 point).<br>
-       3. Evaluate density: Since count < MinPts, Point E is not a Core Point.<br>
-       4. Label status: Point E is labeled as <span class="highlight">Noise (Outlier)</span>.
-    </p>
-
+    <h3>Detailed Summary Chart</h3>
     <table>
         <thead>
             <tr>
                 <th>Point</th>
                 <th>Coordinates</th>
-                <th>Neighbors Found</th>
-                <th>Class Type</th>
+                <th>Neighbors (&epsilon;=2)</th>
+                <th>Point Class</th>
                 <th>Final Assignment</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td><strong>Point A</strong></td>
+                <td><strong>A</strong></td>
                 <td>(1, 1)</td>
-                <td>3</td>
+                <td>4</td>
                 <td>Core Point</td>
                 <td>Cluster 1</td>
             </tr>
             <tr>
-                <td><strong>Point B</strong></td>
+                <td><strong>B</strong></td>
                 <td>(1, 2)</td>
-                <td>3</td>
+                <td>4</td>
                 <td>Core Point</td>
                 <td>Cluster 1</td>
             </tr>
             <tr>
-                <td><strong>Point C</strong></td>
+                <td><strong>C</strong></td>
+                <td>(2, 2)</td>
+                <td>4</td>
+                <td>Core Point</td>
+                <td>Cluster 1</td>
+            </tr>
+            <tr>
+                <td><strong>D</strong></td>
                 <td>(2, 1)</td>
-                <td>3</td>
+                <td>4</td>
                 <td>Core Point</td>
                 <td>Cluster 1</td>
             </tr>
             <tr>
-                <td><strong>Point D</strong></td>
-                <td>(1, 10)</td>
-                <td>1</td>
-                <td>Outlier</td>
-                <td>Noise (Isolated Outlier)</td>
+                <td><strong>E</strong></td>
+                <td>(8, 8)</td>
+                <td>2</td>
+                <td>Noise / Outlier</td>
+                <td>Noise (Isolated)</td>
             </tr>
             <tr>
-                <td><strong>Point E</strong></td>
-                <td>(10, 10)</td>
+                <td><strong>F</strong></td>
+                <td>(8, 9)</td>
+                <td>2</td>
+                <td>Noise / Outlier</td>
+                <td>Noise (Isolated)</td>
+            </tr>
+            <tr>
+                <td><strong>G</strong></td>
+                <td>(20, 20)</td>
                 <td>1</td>
-                <td>Outlier</td>
-                <td>Noise (Isolated Outlier)</td>
+                <td>Noise / Outlier</td>
+                <td>Noise (Outlier)</td>
             </tr>
         </tbody>
     </table>
+
+    <div style="page-break-before: always;"></div>
+
+    <h3>Deep Dive: Understanding "Expand Cluster" & Queue Expansion</h3>
+    <p>
+        The heart of DBSCAN is the <strong>Expand Cluster</strong> phase. It operates like a chain reaction (similar to <strong>Breadth-First Search (BFS)</strong> in graph theory). Once a starting core point is found, the cluster "spreads" to all reachable neighbors. If a neighbor is also a core point, it spreads the cluster to <em>its</em> neighbors, growing the cluster through connected dense regions.
+    </p>
+    
+    <div class="alert">
+        <strong>The Spilling Water Analogy:</strong> Think of it like spilling water. Initially, water hits the starting core point. The water then spreads to all its neighbors. If those neighbors are also core points, they spread the water even further, creating a continuous flow until the water hits a boundary (border points) or runs out of connected dense points.
+    </div>
+
+    <h4>The Queue-Based Chain Reaction Example</h4>
+    <p>Let's trace this expansion meticulously using a queue. Suppose we have the following 8 points:</p>
+    <pre style="font-family: monospace; background: #f7fafc; padding: 12px; border-left: 4px solid #cbd5e0; line-height: 1.2;">
+A  B  C
+D  E  F
+      G
+
+                    H
+    </pre>
+    <p>
+        Coordinates: <strong>A(1,3), B(2,3), C(3,3), D(1,2), E(2,2), F(3,2), G(3,1), H(10,10)</strong>.<br>
+        We configure <strong>&epsilon; = 1.5</strong> and <strong>MinPts = 3</strong>.
+    </p>
+
+    <ol>
+        <li>
+            <strong>Step 1: Pick Point A</strong><br>
+            A's neighbors within radius 1.5 are <strong>{A, B, D, E}</strong> (count 4 &ge; 3). A is a Core Point! <br>
+            Start <strong>Cluster 1 = {A}</strong>. Initialize our search <strong>Queue = [B, D, E]</strong>.
+        </li>
+        <li style="margin-top: 12px;">
+            <strong>Step 2: Pop B from Queue</strong><br>
+            B's neighbors are <strong>{A, B, C, D, E, F}</strong> (count 6 &ge; 3). B is a Core Point! <br>
+            Add B to Cluster 1: <strong>Cluster 1 = {A, B}</strong>.<br>
+            Since B is a Core Point, add its unvisited neighbors to the queue. <strong>Queue = [D, E, C, F]</strong>. (Note: C and F are newly discovered!).
+        </li>
+        <li style="margin-top: 12px;">
+            <strong>Step 3: Pop D from Queue</strong><br>
+            D's neighbors are <strong>{A, B, D, E}</strong> (count 4 &ge; 3). D is a Core Point! <br>
+            Add D to Cluster 1: <strong>Cluster 1 = {A, B, D}</strong>.<br>
+            No new unvisited neighbors to add. <strong>Queue = [E, C, F]</strong>.
+        </li>
+        <li style="margin-top: 12px;">
+            <strong>Step 4: Pop E from Queue</strong><br>
+            E's neighbors are <strong>{A, B, C, D, E, F}</strong> (count 6 &ge; 3). E is a Core Point! <br>
+            Add E to Cluster 1: <strong>Cluster 1 = {A, B, D, E}</strong>.<br>
+            No new unvisited neighbors. <strong>Queue = [C, F]</strong>.
+        </li>
+        <li style="margin-top: 12px;">
+            <strong>Step 5: Pop C from Queue</strong><br>
+            C's neighbors are <strong>{B, C, E, F, G}</strong> (count 5 &ge; 3). C is a Core Point! <br>
+            Add C to Cluster 1: <strong>Cluster 1 = {A, B, D, E, C}</strong>.<br>
+            Add C's unvisited neighbor G to the queue. <strong>Queue = [F, G]</strong>.
+        </li>
+        <li style="margin-top: 12px;">
+            <strong>Step 6: Pop F from Queue</strong><br>
+            F's neighbors are <strong>{B, C, E, F, G}</strong> (count 5 &ge; 3). F is a Core Point! <br>
+            Add F to Cluster 1: <strong>Cluster 1 = {A, B, D, E, C, F}</strong>.<br>
+            No new unvisited neighbors. <strong>Queue = [G]</strong>.
+        </li>
+        <li style="margin-top: 12px;">
+            <strong>Step 7: Pop G from Queue</strong><br>
+            G's neighbors are <strong>{C, F, G}</strong> (count 3 &ge; 3). G is a Core Point! <br>
+            Add G to Cluster 1: <strong>Cluster 1 = {A, B, D, E, C, F, G}</strong>.<br>
+            No new unvisited neighbors. <strong>Queue = []</strong> (Queue is empty!).
+        </li>
+    </ol>
+    <p>
+        The queue is empty, so expansion stops. Point H (10, 10) is too far away to ever be reached and is labeled as <strong>Noise</strong>.
+    </p>
+
+    <div class="alert" style="background-color: #ebf8ff; border-left-color: #2b6cb0;">
+        <strong>Crucial Insight: Why do we still check D, E, etc., if they added no new points?</strong><br>
+        Because we don't know in advance whether they have additional neighbors! If the data had a branch extending down from D (like another point at (1, 0.5)), skipping D would mean missing that entire branch, leaving the cluster incomplete. Every point added to the cluster must be processed exactly once to guarantee we find every density-connected point.
+    </div>
+
+    <h3>DBSCAN Expansion Pseudocode</h3>
+    <pre style="font-family: monospace; background: #1e1e24; color: #ffffff; padding: 15px; border-radius: 6px; line-height: 1.4; overflow-x: auto;">
+algorithm ExpandCluster(dataset, point, neighbors, cluster_id, eps, min_pts) is
+    assign point to cluster_id
+    seeds := queue(neighbors)
+    
+    while seeds is not empty do
+        current_point := seeds.pop()
+        
+        if current_point is unvisited then
+            mark current_point as visited
+            current_neighbors := FindNeighbors(dataset, current_point, eps)
+            
+            if length(current_neighbors) &ge; min_pts then
+                seeds.push_all(current_neighbors)
+                
+        if current_point is not assigned to any cluster then
+            assign current_point to cluster_id
+    </pre>
+
+    <h3>Difference Between K-Means and DBSCAN</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Feature</th>
+                <th>K-Means Clustering</th>
+                <th>DBSCAN Clustering</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Number of Clusters</strong></td>
+                <td>Must specify $K$ in advance</td>
+                <td>Discovered automatically based on density</td>
+            </tr>
+            <tr>
+                <td><strong>Core Mechanism</strong></td>
+                <td>Uses centroids (cluster means)</td>
+                <td>Uses density (neighbor count within &epsilon; radius)</td>
+            </tr>
+            <tr>
+                <td><strong>Outlier Handling</strong></td>
+                <td>Forces every point into a cluster (sensitive)</td>
+                <td>Naturally detects and isolates noise points</td>
+            </tr>
+            <tr>
+                <td><strong>Cluster Shapes</strong></td>
+                <td>Assumes spherical/globular clusters</td>
+                <td>Finds arbitrary, complex, and winding shapes</td>
+            </tr>
+            <tr>
+                <td><strong>Key Parameters</strong></td>
+                <td>$K$ (Number of Clusters)</td>
+                <td>&epsilon; (Search Radius) &amp; MinPts (Density Limit)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Real-World Applications</h3>
+    <ul>
+        <li><strong>Credit Card Fraud Detection:</strong> Grouping normal transactions together while isolating fraudulent transactions as noise.</li>
+        <li><strong>GPS Trajectory Analysis:</strong> Clustering coordinates to identify frequently visited hotspots or routes.</li>
+        <li><strong>Earthquake Epicenter Clustering:</strong> Detecting seismic fault lines by grouping dense clusters of earthquake coordinates.</li>
+        <li><strong>Customer Segmentation with Outliers:</strong> Clustering core customer segments without letting spam accounts or extreme spenders distort the groups.</li>
+    </ul>
+
+    <h3>Interview Spotlight: "What is DBSCAN?"</h3>
+    <p style="font-style: italic; background-color: #f7fafc; padding: 15px; border-left: 4px solid #4299e1;">
+        "DBSCAN (Density-Based Spatial Clustering of Applications with Noise) is an unsupervised density-based clustering algorithm that groups points located in close proximity (dense regions) while labeling isolated points in sparse regions as noise. It requires two main parameters: &epsilon; (neighborhood radius) and MinPts (density threshold). Unlike K-Means, DBSCAN does not require specifying the number of clusters in advance, can discover clusters of arbitrary shapes (like rings or spirals), and is highly robust to outliers, which it automatically identifies."
+    </p>
     """
 
-    pca_html = """
+    pca_html = r"""
     <p>
         Principal Component Analysis (PCA) simplifies high-dimensional data by projecting it onto a 
         lower-dimensional subspace (e.g., compressing 2D down to 1D) while keeping the maximum amount of 
@@ -396,7 +634,7 @@ def generate_pdfs():
     </table>
     """
 
-    isolation_html = """
+    isolation_html = r"""
     <p>
         Isolation Forest isolates anomalies directly by recursively slicing the data space with random lines. 
         Because anomalies are sparse and far away from the crowd, they get isolated in very few slices (shallow tree depth), 
@@ -491,7 +729,7 @@ def generate_pdfs():
     </table>
     """
 
-    apriori_html = """
+    apriori_html = r"""
     <p>
         The Apriori algorithm is used for Market Basket Analysis to discover purchase relationships between products. 
         It operates on the principle that: <em>If an itemset is frequent, then all of its subsets must also be frequent</em>. 
